@@ -2,13 +2,17 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/users.dto';
 import * as bcrypt from 'bcrypt';
+import { MailProvider } from 'src/shared/providers/mail.provider';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly mailProvider: MailProvider,
+  ) {}
 
   async createUser(data: CreateUserDto) {
-    const { email, password } = data;
+    const { email, password, name } = data;
 
     const emailAlreadyExists = await this.emailExists(email);
 
@@ -23,6 +27,17 @@ export class UsersService {
         password: hashedPassword,
       },
     });
+
+    await this.mailProvider.sendEmail({
+      subject: process.env.MAILERSEND_WELCOME_SUBJECT,
+      to: email,
+      from: process.env.MAILERSEND_FROM_EMAIL,
+      dynamicTemplateData: {
+        name,
+      },
+      templateId: process.env.MAILERSEND_TEMPLATE_ID_WELCOME,
+    });
+
     return user;
   }
   async getUsers() {
